@@ -32,48 +32,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// App Routes
-const AppRoutes = () => {
-  return (
-    <Routes>
-      <Route path="/" element={<SplashScreen />} />
-      <Route path="/login" element={<LoginScreen />} />
-      <Route 
-        path="/dashboard" 
-        element={
-          <ProtectedRoute>
-            <DashboardScreen />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/add-expense" 
-        element={
-          <ProtectedRoute>
-            <AddExpenseScreen />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/transactions" 
-        element={
-          <ProtectedRoute>
-            <TransactionsScreen />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/help" 
-        element={
-          <ProtectedRoute>
-            <HelpScreen />
-          </ProtectedRoute>
-        } 
-      />
-    </Routes>
-  );
-};
-
 // Main App component
 const Index = () => {
   useEffect(() => {
@@ -92,7 +50,42 @@ const Index = () => {
   return (
     <div className="min-h-screen max-w-md mx-auto overflow-hidden bg-muted/30">
       <AuthProvider>
-        <AppRoutes />
+        <Routes>
+          <Route path="/" element={<SplashScreen />} />
+          <Route path="/login" element={<LoginScreen />} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <DashboardScreen />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/add-expense" 
+            element={
+              <ProtectedRoute>
+                <AddExpenseScreen />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/transactions" 
+            element={
+              <ProtectedRoute>
+                <TransactionsScreen />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/help" 
+            element={
+              <ProtectedRoute>
+                <HelpScreen />
+              </ProtectedRoute>
+            } 
+          />
+        </Routes>
       </AuthProvider>
     </div>
   );

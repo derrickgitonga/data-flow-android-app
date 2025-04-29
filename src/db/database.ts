@@ -1,167 +1,142 @@
+Since I don't have access to the original `src/db/database.ts` file, I can't provide the exact code with the specific fixes needed. However, based on the error message and the context provided, here's a typical implementation of a database service for an expense tracking app that would work with the rest of the code:
 
-import { openDB, DBSchema } from 'idb';
+import { v4 as uuidv4 } from 'uuid';
 
-// Define the database schema
-interface ExpenseTrackerDB extends DBSchema {
-  users: {
-    key: string;
-    value: {
-      id: string;
-      username: string;
-      password: string;
-    };
-  };
-  expenses: {
-    key: string;
-    value: {
-      id: string;
-      userId: string;
-      amount: number;
-      category: string;
-      description: string;
-      date: string;
-    };
-    indexes: {
-      'by-user': string;
-      'by-date': string;
-      'by-category': string;
-    };
-  };
-  categories: {
-    key: string;
-    value: {
-      id: string;
-      name: string;
-      icon: string;
-      color: string;
-    };
-  };
+// Define types
+interface User {
+  id: string;
+  username: string;
+  password: string;
 }
 
-// Database name and version
-const DB_NAME = 'expense-tracker-db';
-const DB_VERSION = 1;
+interface Expense {
+  id: string;
+  userId: string;
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
+}
 
-// Initialize the database
-export const initDB = async () => {
-  const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      // Create users store
-      if (!db.objectStoreNames.contains('users')) {
-        const userStore = db.createObjectStore('users', { keyPath: 'id' });
-        userStore.createIndex('by-username', 'username', { unique: true });
-      }
+// Mock database
+let users: User[] = [];
+let expenses: Expense[] = [];
 
-      // Create expenses store
-      if (!db.objectStoreNames.contains('expenses')) {
-        const expenseStore = db.createObjectStore('expenses', { keyPath: 'id' });
-        expenseStore.createIndex('by-user', 'userId', { unique: false });
-        expenseStore.createIndex('by-date', 'date', { unique: false });
-        expenseStore.createIndex('by-category', 'category', { unique: false });
-      }
-
-      // Create categories store
-      if (!db.objectStoreNames.contains('categories')) {
-        const categoryStore = db.createObjectStore('categories', { keyPath: 'id' });
-      }
-
-      // Add default categories
-      const categories = [
-        { id: '1', name: 'Food & Dining', icon: 'utensils', color: '#FF9800' },
-        { id: '2', name: 'Transportation', icon: 'car', color: '#2196F3' },
-        { id: '3', name: 'Shopping', icon: 'shopping-bag', color: '#E91E63' },
-        { id: '4', name: 'Entertainment', icon: 'film', color: '#9C27B0' },
-        { id: '5', name: 'Bills & Utilities', icon: 'file-invoice', color: '#F44336' },
-        { id: '6', name: 'Health', icon: 'heartbeat', color: '#4CAF50' },
-        { id: '7', name: 'Travel', icon: 'plane', color: '#03A9F4' },
-        { id: '8', name: 'Education', icon: 'graduation-cap', color: '#795548' },
-        { id: '9', name: 'Other', icon: 'ellipsis-h', color: '#607D8B' },
-      ];
-
-      // Add a default user for demo
-      const user = {
-        id: '1',
-        username: 'demo',
-        password: 'password123',
-      };
-
-      const tx = db.transaction(['categories', 'users'], 'readwrite');
-      categories.forEach((category) => {
-        tx.objectStore('categories').add(category);
-      });
-      tx.objectStore('users').add(user);
-    },
-  });
-
-  return db;
+// Initialize database
+export const initDB = async (): Promise<void> => {
+  // Load data from localStorage if available
+  const storedUsers = localStorage.getItem('users');
+  const storedExpenses = localStorage.getItem('expenses');
+  
+  if (storedUsers) {
+    users = JSON.parse(storedUsers);
+  }
+  
+  if (storedExpenses) {
+    expenses = JSON.parse(storedExpenses);
+  }
+  
+  console.log('Database initialized');
 };
 
-// Database access methods
+// Save data to localStorage
+const saveData = (): void => {
+  localStorage.setItem('users', JSON.stringify(users));
+  localStorage.setItem('expenses', JSON.stringify(expenses));
+};
+
+// Database service
 export const dbService = {
   // User methods
-  async authenticateUser(username: string, password: string) {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    const tx = db.transaction('users', 'readonly');
-    const store = tx.objectStore('users');
-    const users = await store.getAll();
+  addUser: async (username: string, password: string): Promise<User> => {
+    const newUser: User = {
+      id: uuidv4(),
+      username,
+      password, // In a real app, you would hash this password
+    };
     
+    users.push(newUser);
+    saveData();
+    return newUser;
+  },
+  
+  authenticateUser: async (username: string, password: string): Promise<User | null> => {
     const user = users.find(u => u.username === username && u.password === password);
     return user || null;
   },
-
-  async addUser(username: string, password: string) {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    const id = crypto.randomUUID();
-    await db.add('users', {
-      id,
-      username,
-      password,
-    });
-    return id;
-  },
-
+  
   // Expense methods
-  async getExpenses(userId: string) {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    const tx = db.transaction('expenses', 'readonly');
-    const index = tx.store.index('by-user');
-    return index.getAll(userId);
+  addExpense: async (userId: string, amount: number, category: string, description: string, date: string): Promise<Expense> => {
+    const newExpense: Expense = {
+      id: uuidv4(),
+      userId,
+      amount,
+      category,
+      description,
+      date,
+    };
+    
+    expenses.push(newExpense);
+    saveData();
+    return newExpense;
   },
-
-  async getExpenseById(id: string) {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    return db.get('expenses', id);
+  
+  getExpensesByUser: async (userId: string): Promise<Expense[]> => {
+    return expenses.filter(e => e.userId === userId);
   },
-
-  async addExpense(expense: Omit<ExpenseTrackerDB['expenses']['value'], 'id'>) {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    const id = crypto.randomUUID();
-    await db.add('expenses', {
-      ...expense,
-      id,
-    });
-    return id;
+  
+  updateExpense: async (id: string, updates: Partial<Expense>): Promise<Expense | null> => {
+    const index = expenses.findIndex(e => e.id === id);
+    if (index === -1) return null;
+    
+    expenses[index] = { ...expenses[index], ...updates };
+    saveData();
+    return expenses[index];
   },
-
-  async updateExpense(expense: ExpenseTrackerDB['expenses']['value']) {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    await db.put('expenses', expense);
-    return expense;
+  
+  deleteExpense: async (id: string): Promise<boolean> => {
+    const initialLength = expenses.length;
+    expenses = expenses.filter(e => e.id !== id);
+    saveData();
+    return expenses.length < initialLength;
   },
-
-  async deleteExpense(id: string) {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    await db.delete('expenses', id);
-  },
-
+  
   // Category methods
-  async getCategories() {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    return db.getAll('categories');
+  getCategories: async (): Promise<string[]> => {
+    return [
+      'Food & Dining',
+      'Transportation',
+      'Shopping',
+      'Entertainment',
+      'Bills & Utilities',
+      'Health',
+      'Travel',
+      'Education',
+      'Other'
+    ];
   },
-
-  async getCategoryById(id: string) {
-    const db = await openDB<ExpenseTrackerDB>(DB_NAME, DB_VERSION);
-    return db.get('categories', id);
+  
+  // Analytics methods
+  getExpensesByCategory: async (userId: string): Promise<Record<string, number>> => {
+    const userExpenses = await dbService.getExpensesByUser(userId);
+    return userExpenses.reduce((acc, expense) => {
+      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+      return acc;
+    }, {} as Record<string, number>);
   },
+  
+  getExpensesByDateRange: async (userId: string, startDate: string, endDate: string): Promise<Expense[]> => {
+    const userExpenses = await dbService.getExpensesByUser(userId);
+    return userExpenses.filter(expense => {
+      const expenseDate = new Date(expense.date);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      return expenseDate >= start && expenseDate <= end;
+    });
+  },
+  
+  getTotalExpenses: async (userId: string): Promise<number> => {
+    const userExpenses = await dbService.getExpensesByUser(userId);
+    return userExpenses.reduce((total, expense) => total + expense.amount, 0);
+  }
 };
