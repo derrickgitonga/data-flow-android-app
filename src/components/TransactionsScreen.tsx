@@ -34,7 +34,7 @@ const TransactionsScreen = () => {
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
 
   useEffect(() => {
@@ -93,7 +93,7 @@ const TransactionsScreen = () => {
   }
 
   // Apply category filter
-  if (categoryFilter) {
+  if (categoryFilter && categoryFilter !== 'all') {
     filteredExpenses = filteredExpenses.filter(
       (expense) => expense.category === categoryFilter
     );
@@ -178,7 +178,7 @@ const TransactionsScreen = () => {
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
