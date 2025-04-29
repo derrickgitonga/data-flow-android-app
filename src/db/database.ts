@@ -1,4 +1,3 @@
-Since I don't have access to the original `src/db/database.ts` file, I can't provide the exact code with the specific fixes needed. However, based on the error message and the context provided, here's a typical implementation of a database service for an expense tracking app that would work with the rest of the code:
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,6 +15,13 @@ interface Expense {
   category: string;
   description: string;
   date: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
 }
 
 // Mock database
@@ -66,14 +72,10 @@ export const dbService = {
   },
   
   // Expense methods
-  addExpense: async (userId: string, amount: number, category: string, description: string, date: string): Promise<Expense> => {
+  addExpense: async (expenseData: Omit<Expense, 'id'>): Promise<Expense> => {
     const newExpense: Expense = {
       id: uuidv4(),
-      userId,
-      amount,
-      category,
-      description,
-      date,
+      ...expenseData
     };
     
     expenses.push(newExpense);
@@ -81,15 +83,15 @@ export const dbService = {
     return newExpense;
   },
   
-  getExpensesByUser: async (userId: string): Promise<Expense[]> => {
+  getExpenses: async (userId: string): Promise<Expense[]> => {
     return expenses.filter(e => e.userId === userId);
   },
   
-  updateExpense: async (id: string, updates: Partial<Expense>): Promise<Expense | null> => {
-    const index = expenses.findIndex(e => e.id === id);
+  updateExpense: async (expense: Expense): Promise<Expense | null> => {
+    const index = expenses.findIndex(e => e.id === expense.id);
     if (index === -1) return null;
     
-    expenses[index] = { ...expenses[index], ...updates };
+    expenses[index] = expense;
     saveData();
     return expenses[index];
   },
@@ -102,23 +104,23 @@ export const dbService = {
   },
   
   // Category methods
-  getCategories: async (): Promise<string[]> => {
+  getCategories: async (): Promise<Category[]> => {
     return [
-      'Food & Dining',
-      'Transportation',
-      'Shopping',
-      'Entertainment',
-      'Bills & Utilities',
-      'Health',
-      'Travel',
-      'Education',
-      'Other'
+      { id: 'food', name: 'Food & Dining', color: '#FF5722', icon: 'utensils' },
+      { id: 'transport', name: 'Transportation', color: '#2196F3', icon: 'car' },
+      { id: 'shopping', name: 'Shopping', color: '#9C27B0', icon: 'shopping-bag' },
+      { id: 'entertainment', name: 'Entertainment', color: '#FF9800', icon: 'film' },
+      { id: 'bills', name: 'Bills & Utilities', color: '#607D8B', icon: 'file-invoice' },
+      { id: 'health', name: 'Health', color: '#4CAF50', icon: 'heartbeat' },
+      { id: 'travel', name: 'Travel', color: '#03A9F4', icon: 'plane' },
+      { id: 'education', name: 'Education', color: '#795548', icon: 'book' },
+      { id: 'other', name: 'Other', color: '#9E9E9E', icon: 'ellipsis-h' }
     ];
   },
   
   // Analytics methods
   getExpensesByCategory: async (userId: string): Promise<Record<string, number>> => {
-    const userExpenses = await dbService.getExpensesByUser(userId);
+    const userExpenses = await dbService.getExpenses(userId);
     return userExpenses.reduce((acc, expense) => {
       acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
       return acc;
@@ -126,7 +128,7 @@ export const dbService = {
   },
   
   getExpensesByDateRange: async (userId: string, startDate: string, endDate: string): Promise<Expense[]> => {
-    const userExpenses = await dbService.getExpensesByUser(userId);
+    const userExpenses = await dbService.getExpenses(userId);
     return userExpenses.filter(expense => {
       const expenseDate = new Date(expense.date);
       const start = new Date(startDate);
@@ -136,7 +138,7 @@ export const dbService = {
   },
   
   getTotalExpenses: async (userId: string): Promise<number> => {
-    const userExpenses = await dbService.getExpensesByUser(userId);
+    const userExpenses = await dbService.getExpenses(userId);
     return userExpenses.reduce((total, expense) => total + expense.amount, 0);
   }
 };
