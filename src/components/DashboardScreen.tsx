@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dbService } from '@/db/database';
-import { BarChart } from '@/components/ui/chart';
+import { BarChart } from '@/components/ui/bar-chart';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface Category {
