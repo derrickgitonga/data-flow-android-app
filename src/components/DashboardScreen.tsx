@@ -2,21 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { dbService } from '@/db/database';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
-
-// Types
-interface Expense {
-  id: string;
-  userId: string;
-  amount: number;
-  category: string;
-  description: string;
-  date: string;
-}
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { dbService } from '@/db/database';
+import { BarChart } from '@/components/ui/chart';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface Category {
   id: string;
@@ -25,121 +15,92 @@ interface Category {
   icon: string;
 }
 
-// Helper function to format currency
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-};
-
 const DashboardScreen = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [expensesByCategory, setExpensesByCategory] = useState<Record<string, number>>({});
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [totalSpent, setTotalSpent] = useState(0);
-  const [pieChartData, setPieChartData] = useState<any[]>([]);
-  const [barChartData, setBarChartData] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       if (!user) {
         navigate('/login');
         return;
       }
 
       try {
+        setLoading(true);
+        
         // Fetch categories
         const categoriesData = await dbService.getCategories();
         setCategories(categoriesData);
-
-        // Fetch expenses for the current user
-        const expensesData = await dbService.getExpenses(user.id);
-        setExpenses(expensesData);
-
-        // Calculate total spent
-        const total = expensesData.reduce((sum, expense) => sum + expense.amount, 0);
-        setTotalSpent(total);
-
-        // Prepare chart data
-        prepareChartData(expensesData, categoriesData);
+        
+        // Fetch total expenses
+        const total = await dbService.getTotalExpenses(user.id);
+        setTotalExpenses(total);
+        
+        // Fetch expenses by category
+        const byCategory = await dbService.getExpensesByCategory(user.id);
+        setExpensesByCategory(byCategory);
+        
+        // Fetch recent transactions
+        const transactions = await dbService.getExpenses(user.id);
+        setRecentTransactions(transactions.slice(0, 3));
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchData();
+    
+    fetchDashboardData();
   }, [user, navigate]);
-
-  const prepareChartData = (expenses: Expense[], categories: Category[]) => {
-    // Prepare pie chart data (expenses by category)
-    const expensesByCategory: Record<string, number> = {};
-    expenses.forEach((expense) => {
-      if (expensesByCategory[expense.category]) {
-        expensesByCategory[expense.category] += expense.amount;
-      } else {
-        expensesByCategory[expense.category] = expense.amount;
-      }
-    });
-
-    const pieData = Object.entries(expensesByCategory).map(([categoryId, amount]) => {
-      const category = categories.find((c) => c.id === categoryId);
-      return {
-        name: category ? category.name : 'Unknown',
-        value: amount,
-        color: category ? category.color : '#999',
-      };
-    });
-
-    setPieChartData(pieData);
-
-    // Prepare bar chart data (daily expenses for the past 7 days)
-    const today = new Date();
-    const barData = [];
-
-    for (let i = 6; i >= 0; i--) {
-      const date = subDays(today, i);
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const dayExpenses = expenses.filter((expense) => expense.date.startsWith(dateStr));
-      const totalAmount = dayExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-
-      barData.push({
-        name: format(date, 'EEE'),
-        amount: totalAmount,
-      });
-    }
-
-    setBarChartData(barData);
-  };
 
   const handleAddExpense = () => {
     navigate('/add-expense');
   };
 
-  const handleViewAllTransactions = () => {
+  const handleViewTransactions = () => {
     navigate('/transactions');
   };
 
-  // Get recent expenses (last 5)
-  const recentExpenses = [...expenses]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+  const handleSettings = () => {
+    navigate('/settings');
+  };
+  
+  const handleProfile = () => {
+    navigate('/profile');
+  };
+  
+  const handleHelp = () => {
+    navigate('/help');
+  };
 
-  // Calculate this month's spending
-  const now = new Date();
-  const start = startOfMonth(now);
-  const end = endOfMonth(now);
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
 
-  const thisMonthExpenses = expenses.filter((expense) => {
-    const expenseDate = new Date(expense.date);
-    return expenseDate >= start && expenseDate <= end;
+  // Prepare chart data
+  const chartData = Object.entries(expensesByCategory).map(([categoryId, amount]) => {
+    const category = categories.find(c => c.id === categoryId);
+    return {
+      name: category?.name || 'Unknown',
+      value: amount,
+      color: category?.color || '#ccc',
+    };
   });
 
-  const thisMonthTotal = thisMonthExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  // Get category by ID
+  const getCategoryById = (id: string) => {
+    return categories.find(category => category.id === id);
+  };
 
   if (loading) {
     return (
@@ -157,118 +118,97 @@ const DashboardScreen = () => {
       {/* Header */}
       <div className="bg-primary text-white p-4">
         <div className="container max-w-md mx-auto">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-bold">ExpenseFlow</h1>
-              <p className="text-sm opacity-80">Hello, {user?.username}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="mr-3">
+                <Avatar className="h-10 w-10 bg-primary-foreground text-primary">
+                  <AvatarFallback>
+                    {user?.username?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Dashboard</h1>
+                <p className="text-sm opacity-80">Welcome, {user?.username || 'User'}!</p>
+              </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={logout} className="text-white hover:text-white/80">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
+            <button onClick={handleSettings}>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="24" 
+                height="24" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
               </svg>
-              Logout
-            </Button>
+            </button>
           </div>
         </div>
       </div>
 
       <div className="container max-w-md mx-auto p-4 space-y-4">
-        {/* Overview Cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="shadow">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Total Spent</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(totalSpent)}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">This Month</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(thisMonthTotal)}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts */}
+        {/* Total Expenses Card */}
         <Card className="shadow">
-          <CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Total Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{formatCurrency(totalExpenses)}</div>
+            <p className="text-muted-foreground text-sm mt-1">Current Month</p>
+          </CardContent>
+        </Card>
+        
+        {/* Expenses Chart */}
+        <Card className="shadow">
+          <CardHeader className="pb-2">
             <CardTitle className="text-lg">Spending by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            {pieChartData.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {pieChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value) => formatCurrency(value as number)} 
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground py-6">No data available</p>
-            )}
+            <div className="h-64">
+              {chartData.length > 0 ? (
+                <BarChart 
+                  data={chartData}
+                  index="name"
+                  categories={["value"]}
+                  colors={["primary"]}
+                  valueFormatter={(value) => formatCurrency(value)}
+                  showLegend={false}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-muted-foreground">No expense data available</p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
-
-        <Card className="shadow">
-          <CardHeader>
-            <CardTitle className="text-lg">Last 7 Days</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {barChartData.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barChartData}>
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(value) => `$${value}`} />
-                    <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                    <Bar dataKey="amount" fill="#6200EE" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground py-6">No data available</p>
-            )}
-          </CardContent>
-        </Card>
-
+        
         {/* Recent Transactions */}
         <Card className="shadow">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Recent Transactions</CardTitle>
-            <Button variant="ghost" size="sm" onClick={handleViewAllTransactions}>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleViewTransactions}
+              className="text-xs"
+            >
               View All
             </Button>
           </CardHeader>
           <CardContent>
-            {recentExpenses.length > 0 ? (
-              <div className="space-y-4">
-                {recentExpenses.map((expense) => {
-                  const category = categories.find((c) => c.id === expense.category);
-
+            {recentTransactions.length > 0 ? (
+              <div className="space-y-2">
+                {recentTransactions.map((transaction) => {
+                  const category = getCategoryById(transaction.category);
                   return (
-                    <div key={expense.id} className="flex items-center justify-between">
+                    <div key={transaction.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md">
                       <div className="flex items-center space-x-3">
                         <div 
                           className="w-10 h-10 rounded-full flex items-center justify-center"
@@ -279,25 +219,63 @@ const DashboardScreen = () => {
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium">{expense.description}</p>
+                          <p className="font-medium">{transaction.description}</p>
                           <p className="text-xs text-muted-foreground">
-                            {format(new Date(expense.date), 'MMM dd, yyyy')} • {category?.name || 'Unknown'}
+                            {category?.name || 'Unknown'}
                           </p>
                         </div>
                       </div>
                       <span className="font-medium">
-                        -{formatCurrency(expense.amount)}
+                        -{formatCurrency(transaction.amount)}
                       </span>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-6">No recent transactions</p>
+              <p className="text-center text-muted-foreground py-4">No recent transactions</p>
             )}
           </CardContent>
         </Card>
-
+        
+        {/* Quick Actions */}
+        <div className="grid grid-cols-3 gap-2">
+          <Button 
+            variant="outline"
+            className="flex flex-col h-24 items-center justify-center space-y-1"
+            onClick={handleAddExpense}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+            <span className="text-xs">Add Expense</span>
+          </Button>
+          <Button 
+            variant="outline"
+            className="flex flex-col h-24 items-center justify-center space-y-1"
+            onClick={handleProfile}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span className="text-xs">Profile</span>
+          </Button>
+          <Button 
+            variant="outline"
+            className="flex flex-col h-24 items-center justify-center space-y-1"
+            onClick={handleHelp}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <path d="M12 17h.01"></path>
+            </svg>
+            <span className="text-xs">Help</span>
+          </Button>
+        </div>
+        
         {/* Add Expense Button */}
         <div className="fixed bottom-6 right-0 left-0 flex justify-center">
           <Button 

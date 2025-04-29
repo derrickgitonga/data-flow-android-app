@@ -6,6 +6,8 @@ import LoginScreen from '@/components/LoginScreen';
 import DashboardScreen from '@/components/DashboardScreen';
 import AddExpenseScreen from '@/components/AddExpenseScreen';
 import TransactionsScreen from '@/components/TransactionsScreen';
+import SettingsScreen from '@/components/SettingsScreen';
+import ProfileScreen from '@/components/ProfileScreen';
 import HelpScreen from '@/components/HelpScreen';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { initDB } from '@/db/database';
@@ -74,6 +76,22 @@ const Index = () => {
             element={
               <ProtectedRoute>
                 <TransactionsScreen />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <ProtectedRoute>
+                <SettingsScreen />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <ProfileScreen />
               </ProtectedRoute>
             } 
           />

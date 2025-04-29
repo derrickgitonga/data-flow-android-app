@@ -10,8 +10,8 @@ import { dbService } from '@/db/database';
 import { useToast } from '@/components/ui/use-toast';
 
 const LoginScreen = () => {
-  const [username, setUsername] = useState('demo'); // Pre-filled for demo purposes
-  const [password, setPassword] = useState('password123'); // Pre-filled for demo purposes
+  const [username, setUsername] = useState('Demo'); // Pre-filled for demo purposes
+  const [password, setPassword] = useState('Demo'); // Pre-filled for demo purposes
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -43,12 +43,12 @@ const LoginScreen = () => {
     setIsLoading(true);
     try {
       // Check if demo user exists
-      const user = await dbService.authenticateUser('demo', 'password123');
+      const user = await dbService.authenticateUser('Demo', 'Demo');
       if (!user) {
-        await dbService.addUser('demo', 'password123');
+        await dbService.addUser('Demo', 'Demo');
         toast({
           title: "Demo account created",
-          description: "You can now log in with username 'demo' and password 'password123'"
+          description: "You can now log in with username 'Demo' and password 'Demo'"
         });
       } else {
         toast({
